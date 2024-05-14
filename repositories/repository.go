@@ -11,7 +11,6 @@ type popWaRepository struct {
 
 func NewPopWaRepository(db *gorm.DB) *popWaRepository {
 	db.AutoMigrate(&domain.User{})
-	//db.AutoMigrate(&domain.Position{})
 	return &popWaRepository{
 		db:     db,
 	}
