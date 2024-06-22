@@ -5,6 +5,7 @@ import (
 	"popwa/domain"
 	"popwa/logs"
 	"sync"
+	"time"
 
 	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/fiber/v2"
@@ -62,6 +63,28 @@ func (h *popWaHandler) HandleWebSocket(c *websocket.Conn) {
 		c.Close()
 	}()
 
+	ticker := time.NewTicker(3 * time.Second)
+	defer ticker.Stop()
+
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				h.mu.Lock()
+				_, users := h.popWaService.GetAllUsers()
+				for client := range h.clients {
+					err := h.SendWebSocketMessage(client, "updateLeaderboard", users)
+					if err != nil {
+						logs.Error("Error broadcasting leaderboard to client:", zap.Error(err))
+						delete(h.clients, client)
+						client.Close()
+					}
+				}
+				h.mu.Unlock()
+			}
+		}
+	}()
+
 	for {
 		var message struct {
 			Action string          `json:"action"`
@@ -93,14 +116,10 @@ func (h *popWaHandler) HandleWebSocket(c *websocket.Conn) {
 			}
 
 			_, response := h.popWaService.UpdateScore(updateScore)
-			_, users := h.popWaService.GetAllUsers()
+			
 			err := h.SendWebSocketMessage(c, "updateScore", response)
 			if err != nil {
 				logs.Error("Error sending response to client:", zap.Error(err))
-			}
-			err = h.SendWebSocketMessage(c, "updateLeaderboard", users)
-			if err != nil {
-				logs.Error("Error sending users to client:", zap.Error(err))
 			}
 
 			h.mu.Lock()
@@ -111,15 +130,12 @@ func (h *popWaHandler) HandleWebSocket(c *websocket.Conn) {
 					delete(h.clients, client)
 					client.Close()
 				}
-				err = h.SendWebSocketMessage(client, "updateLeaderboard", users)
-				if err != nil {
-					logs.Error("Error broadcasting users to client:", zap.Error(err))
-				}
 			}
 			h.mu.Unlock()
 		}
 	}
 }
+
 
 func (h *popWaHandler) SendWebSocketMessage(c *websocket.Conn, action string, data interface{}) error {
 	message := struct {
