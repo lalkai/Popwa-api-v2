@@ -26,16 +26,15 @@ func main() {
 
 	app := fiber.New()
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "https://satjawat.com",
+		AllowOrigins: "https://satjawat.com/",
 		AllowHeaders: "*",
 		AllowMethods: "GET, POST, PUT, DELETE, OPTIONS",
 	}))
 
 	app.Get("/getUser/:Username", popWahandler.GetUser)
 	app.Post("/addUser", popWahandler.AddUser)
-	app.Put("/updateScore", popWahandler.UpdateScore)
 
-	app.Get("/getAllUsers", websocket.New(popWahandler.GetAllUsers))
+	app.Get("/wsPopwa", websocket.New(popWahandler.HandleWebSocket))
 
 	app.Listen(fmt.Sprintf(":%v", os.Getenv("POPWA_PORT")))
 }
